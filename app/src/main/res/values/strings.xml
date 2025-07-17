@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">FaceBook GalleryAPP</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="BANNER_PROD_ID">1047727464129153_1048209257414307</string>
+    <string name="INTERSTITIAL_ID">1047727464129153_1048209327414300</string>
+    <string name="APPLICATION_ADS_ID">ca-app-pub-9097893318074265~4242112237</string>
+    <string name="AppScreenTitle">Click here to Read All the Telugu Stoires</string>
+    <string name="terms_privacy"><u>Privacy Policy Terms and Conditions</u></string>
+    <!--<string name="target_date">13-AUG-20018</string> SAMPLE DATE FORMAT-->
+    <string name="assets_exception">Gallery Icon count less than Gallery Directory list in Assets folder. Please fix and rerun the app.</string>
+
+</resources>

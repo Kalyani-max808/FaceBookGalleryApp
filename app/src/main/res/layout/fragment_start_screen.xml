@@ -1,0 +1,84 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:weightSum="100"
+    android:orientation="vertical"
+    >
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@color/Brown"
+        android:text="@string/app_name"
+        android:textAlignment="center"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        android:textColor="@color/LightYellow"
+        android:textStyle="bold"/>
+
+    <LinearLayout
+        android:id="@+id/btnGalleryLayout03"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="98"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="@color/WhiteSmoke">
+        <ImageButton
+            android:id="@+id/btnGallery03"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:adjustViewBounds="true"
+            android:background="@drawable/gallery"
+            android:layout_gravity="center|center_horizontal"
+            android:cropToPadding="true"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:background="@color/Brown">
+        <ImageButton
+            android:id="@+id/imgBtnRateMe03"
+            android:layout_width="match_parent"
+            android:background="@color/Brown"
+            android:layout_weight="50"
+            android:layout_gravity="center_horizontal"
+            android:layout_height="wrap_content"
+            android:src="@drawable/btn_rate"/>
+        <ImageButton
+            android:id="@+id/imgBtnShare03"
+            android:layout_width="match_parent"
+            android:background="@color/Brown"
+            android:layout_marginLeft="10dp"
+            android:layout_weight="50"
+            android:layout_gravity="center_horizontal"
+            android:layout_height="wrap_content"
+            android:src="@drawable/btn_share"/>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:layout_weight="02"
+        android:orientation="vertical"
+        android:background="@color/LightYellow">
+        <TextView
+            android:id="@+id/tvPrivacy03"
+            android:layout_width="411dp"
+            android:layout_height="wrap_content"
+            android:gravity="center|bottom"
+            android:autoLink="web"
+            android:linksClickable="false"
+            android:text="@string/terms_privacy"
+            android:textColor="@color/seagreen"
+            android:textSize="17sp"
+            android:textStyle="italic" />
+
+    </LinearLayout>
+
+</LinearLayout>

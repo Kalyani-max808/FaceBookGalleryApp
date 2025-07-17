@@ -1,0 +1,35 @@
+<LinearLayout android:layout_height="match_parent"
+    android:layout_width="match_parent"
+    android:orientation="vertical"
+    android:background="@color/Brown"
+    xmlns:android="http://schemas.android.com/apk/res/android" >
+<ImageButton
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/LightBlue"
+    android:src="@drawable/main_title"/>
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:background="@color/Brown"
+        android:layout_gravity="center_horizontal"
+        android:layout_height="wrap_content"
+        android:src="@drawable/btn_watch"/>
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:background="@color/Brown"
+        android:layout_gravity="center_horizontal"
+        android:layout_height="wrap_content"
+        android:src="@drawable/btn_rate"/>
+    <ImageButton
+        android:layout_width="wrap_content"
+        android:background="@color/Brown"
+        android:layout_gravity="center_horizontal"
+        android:layout_height="wrap_content"
+        android:src="@drawable/btn_share"/>
+  <ImageButton
+      android:layout_width="wrap_content"
+      android:background="@color/Brown"
+      android:layout_height="wrap_content"
+      android:layout_gravity="center_horizontal"
+      android:src="@drawable/btn_privacy"/>
+</LinearLayout>
