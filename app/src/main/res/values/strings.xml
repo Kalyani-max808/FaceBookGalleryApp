@@ -3,7 +3,7 @@
 
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
-    <string name="BANNER_PROD_ID">1047727464129153_1048209257414307</string>
+    <string name="BANNER_ID">1047727464129153_1048209257414307</string>
     <string name="INTERSTITIAL_ID">1047727464129153_1048209327414300</string>
     <string name="APPLICATION_ADS_ID">ca-app-pub-9097893318074265~4242112237</string>
     <string name="AppScreenTitle">Click here to Read All the Telugu Stoires</string>

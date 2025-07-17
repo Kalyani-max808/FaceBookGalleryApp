@@ -55,7 +55,7 @@ dependencies {
 
     implementation(libs.androidx.cardview)
     // Admob Ads
-    implementation(libs.play.services.ads)
+    //implementation(libs.play.services.ads)
     // Recycleview
     implementation(libs.androidx.recyclerview)
     // kapt("androidx.lifecycle:lifecycle-compiler:2.3.1")

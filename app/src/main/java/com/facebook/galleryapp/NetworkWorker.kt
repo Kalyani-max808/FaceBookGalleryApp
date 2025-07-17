@@ -51,7 +51,7 @@ object NetworkWorker {
             }
         }
 
-         fun  isDeviceOnline():Boolean {
+         private fun  isDeviceOnline():Boolean {
 /*
             if (!AdObject.isNetworkAvailable()){
                 return false

@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 
 
 object AdObject {
-    const val INTERSTITIAL_ID: String = "ca-app-pub-9097893318074265/8507309239"
+    var INTERSTITIAL_ID: String = "ca-app-pub-9097893318074265/8507309239"
     var PACKAGE_NAME = ""
     var TARGET_DATE_STRING: String = "10-AUG-2018" //Target Date for the App
     var THRESHOLD_TARGET_HOURS = 12

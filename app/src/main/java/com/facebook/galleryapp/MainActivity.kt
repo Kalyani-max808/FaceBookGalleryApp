@@ -1,21 +1,20 @@
 package com.facebook.galleryapp
 
-import android.app.Activity
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.os.Bundle
-import android.view.View
+import android.util.Log // Added for logging
+// Removed Button import as showInterstitialButton is removed
+import android.widget.LinearLayout // Import LinearLayout for banner container
+import android.widget.Toast // Import Toast for messages
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
-import com.google.android.gms.ads.AdListener
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.MobileAds
+import com.facebook.ads.* // Import all necessary Facebook Ads classes
 import com.facebook.galleryapp.AdObject.FRAGMENT_LOADED
 import com.facebook.galleryapp.AdObject.fragmentsStack
-import com.facebook.galleryapp.AdObject.mCountDownTimer
+// Removed AdObject.mCountDownTimer as it was AdMob-specific
 import com.facebook.galleryapp.NetworkWorker.adLimitEnabled
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,7 +27,7 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
 
     private lateinit var navController: NavController
     private lateinit var navHostFragment: NavHostFragment
-    private var BannerLoaded = false
+    // Removed BannerLoaded as Facebook's AdView handles loading state internally
     private var DB_NAME = "db_temp01.db" //CHANGE THE DB NAME FOR EVERY APP
 
     private val StartScreen = "START_SCREEN"
@@ -38,26 +37,61 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
     private val BookmarkMenu = "BOOKMARK_MENU"
     private val BookmarkItem = "BOOKMARK_ITEM"
     private val PrivacyPolicy = "PRIVACY_POLICY"
-    private lateinit var adBanner:com.google.android.gms.ads.AdView
+
+    // Changed from AdMob AdView to Facebook Audience Network AdView
+    private var adView: AdView? = null
+    // Added LinearLayout to hold the Facebook banner ad
+    private lateinit var bannerContainer: LinearLayout
+
+    // Removed Interstitial Ad declarations
+    // private var interstitialAd: InterstitialAd? = null
+    // private lateinit var showInterstitialButton: Button // Button to trigger interstitial ad
+
+    // Declare bannerAdListener as a class member so it can be accessed in loadBannerWithConnectivityCheck
+    private lateinit var bannerAdListener: AdListener
+
+    // Removed interstitialAdListener declaration
+    // private lateinit var interstitialAdListener: InterstitialAdListener
+
+    // New flag to track if banner ad is currently loading
+    private var isBannerAdLoading: Boolean = false
+
 
     init {
-
+        // Initialization block if needed
     }
-    override fun onCreate(savedInstanceState: Bundle?) {
 
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        adBanner = findViewById(R.id.adBanner)
+
+        // Initialize Facebook Audience Network SDK
+        AudienceNetworkAds.initialize(this)
+        // Register your test device and enable test mode
+        // IMPORTANT: Set AdSettings.setTestMode(false) and remove AdSettings.addTestDevice() for production!
+        AdSettings.addTestDevice("d5484b3f-5330-48f0-ba03-3986f5d1057e")
+        AdSettings.setTestMode(true)
+
+        // Find the banner container from XML (assuming it has id @+id/banner_container)
+        bannerContainer = findViewById(R.id.adBanner)
+
+      // In your MainActivity's onCreate() method, after setContentView() and before any ad loading
+        AdObject.INTERSTITIAL_ID = getString(R.string.INTERSTITIAL_ID)
         startANRWatchDog()
-        initializeAdmob()
-  //      initializeNavgraph()
+        // initializeAdmob() removed - AdMob initialization is no longer needed
+        initializeNavgraph() // Retained as it's part of your app's navigation
         loadSplashScreen()
-        setupBannerAdListeners()
-        loadBannerWithConnectivityCheck()
+
+        // Setup Facebook Banner Ad
+        setupFacebookBannerAd()
+        loadBannerWithConnectivityCheck() // This will now load the Facebook banner
+
+        // Removed Setup Facebook Interstitial Ad call
+        // setupFacebookInterstitialAd()
+
         startNetworkMonitoringServiceUsingCoroutines()
         runInitializationInBackground()
         setDefaultExceptionHandler()
-
     }
 
     private fun startANRWatchDog() {
@@ -67,8 +101,8 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
     private fun runInitializationInBackground() {
         val scope = CoroutineScope(Dispatchers.Default)
         scope.launch {
-            AdObject.snackbarContainer= findViewById(R.id.clMainActivity)
-//            adBanner = findViewById(R.id.adBanner)
+            AdObject.snackbarContainer = findViewById(R.id.clMainActivity)
+            // adBanner = findViewById(R.id.adBanner) removed - replaced by bannerContainer
             loadDataFromAssets()
             setupDB()
             initializeAdobject()
@@ -104,9 +138,7 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
         navController = navHostFragment.navController
     }
 
-    private fun initializeAdmob() {
-        MobileAds.initialize(this) {}
-    }
+    // initializeAdmob() removed
 
     private fun setDefaultExceptionHandler() {
         Thread.setDefaultUncaughtExceptionHandler { t, e -> System.err.println(e.printStackTrace()) }
@@ -117,20 +149,17 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
     }
 
 
-
-
     /*----------------------ON BACK PRESS FOR THE ACTIVITY AND FRAGMENTS-------------------*/
     override fun onBackPressed() {
 //        if (isLastScreen()) exitApplication()
         if (isNotLastScreen()) {
             fragmentsStack.pop()
             loadPreviousFragment()
-        }else{
+        } else {
             FRAGMENT_LOADED = false /*WHEN APP IS GOING INTO BACKGROUND, SET FRAGMENT_LOADED = FALSE*/
             AdObject.SPLASH_CALLED = false
             exitApplication()
         }
-
     }
 
     private fun exitApplication() {
@@ -143,23 +172,16 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
         finishAffinity()
         exitProcess(0)
     }
+
     private fun isNotLastScreen(): Boolean {
         return fragmentsStack.size > 1
-/*
-        val backStackEntryCount = navHostFragment?.childFragmentManager?.backStackEntryCount?:2
-        if (backStackEntryCount==2) return true
-        return false
-*/
     }
 
     /*--------------------------------------------SCREEN LOADING VIA FRAGMENTS--------------------------------------------------------*/
     /*-----------------------SCREEN 0 - THE SPLASH SCREEN----------------------*/
     override fun loadSplashScreen() {
-
         if (!AdObject.SPLASH_CALLED) navigateToScreenUsingNagGraph(SplashFragment())
-
     }
-
 
     /*-----------------------SCREEN 0 - THE TEST MODE SCREEN----------------------*/
     override fun loadTestModeScreen() {
@@ -167,9 +189,7 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
             supportFragmentManager.beginTransaction().apply {
                 replace(R.id.nav_host_fragment, TestModeFragment())
                 commitAllowingStateLoss()
-//                addToBackStack(null)  //DONT KEEP IT IN BACKSTACK
             }
-
             this.loadBannerWithConnectivityCheck()
         }
     }
@@ -211,7 +231,6 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
 
     /*------------------------------SCREEN 5 - THE BOOK MARK ITEM------------------------*/
     override fun loadBookMarkItem() {
-//        navigateToScreenUsingNagGraph(R.id.action_bookMark_to_bookMarkItem)
         navigateToScreenUsingNagGraph(BookMarkItemFragment())
         addFragmentToStack(BookmarkItem)
     }
@@ -220,64 +239,65 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
         FRAGMENT_LOADED = true
         fragmentsStack.push(fragmentScreen)
     }
-/*--------------------------------------------SCREEN LOADING VIA FRAGMENTS--------------------------------------------------------*/
-private fun navigateToScreenUsingNagGraph(destinationFrag: Fragment) {
 
-    if (!isFinishing) {
-        supportFragmentManager.beginTransaction().apply {
-            replace(R.id.nav_host_fragment, destinationFrag)
-            commitAllowingStateLoss()
-            addToBackStack(null)
+    /*--------------------------------------------SCREEN LOADING VIA FRAGMENTS--------------------------------------------------------*/
+    private fun navigateToScreenUsingNagGraph(destinationFrag: Fragment) {
+        if (!isFinishing) {
+            supportFragmentManager.beginTransaction().apply {
+                replace(R.id.nav_host_fragment, destinationFrag)
+                commitAllowingStateLoss()
+                addToBackStack(null)
+            }
+            FRAGMENT_LOADED = true
+            this.loadBannerWithConnectivityCheck()
         }
-//    navController.navigate(fragment)
-        FRAGMENT_LOADED = true
-        this.loadBannerWithConnectivityCheck()
     }
-}
 
 
+    // Function to set up Facebook Banner Ad
+    private fun setupFacebookBannerAd() {
+        val BANNER_AD_PLACEMENT_ID = getString(R.string.BANNER_ID)
+        adView = AdView(this, BANNER_AD_PLACEMENT_ID, AdSize.BANNER_HEIGHT_50)
+        bannerContainer.addView(adView)
 
+        bannerAdListener = object : AdListener {
+            override fun onError(ad: Ad, adError: AdError) {
+                Log.e("FAN_BANNER_DEBUG", "Banner Ad failed to load: " + adError.errorMessage)
+                AppUtils().showSnackbarMsg("Banner failed to load.${adError.errorMessage}")
+                isBannerAdLoading = false // Reset loading flag on error
+            }
+            override fun onAdLoaded(ad: Ad) {
+                Log.d("FAN_BANNER_DEBUG", "Banner Ad loaded")
+                isBannerAdLoading = false // Reset loading flag on success
+            }
+            override fun onAdClicked(ad: Ad) { Log.d("FAN_BANNER_DEBUG", "Banner Ad clicked") }
+            override fun onLoggingImpression(ad: Ad) { Log.d("FAN_BANNER_DEBUG", "Banner Ad impression logged") }
+        }
+    }
 
+    // Updated function to load Facebook Banner Ad
     private fun loadBannerWithConnectivityCheck() {
-        if (AdObject.isNetworkAvailable() and !adBanner.isLoading and !BannerLoaded and !adLimitEnabled) {
-            adBanner.loadAd(AdRequest.Builder().build())
+        if (adView != null && AdObject.isNetworkAvailable() && !adLimitEnabled) {
+            // Check if the ad is currently loading to avoid redundant calls
+            if (!isBannerAdLoading) { // Using the new flag
+                isBannerAdLoading = true // Set flag to true before loading
+                adView?.loadAd(adView!!.buildLoadAdConfig().withAdListener(bannerAdListener).build())
+            } else {
+                Log.d("FAN_BANNER_DEBUG", "Banner Ad already loading.")
+            }
+        } else {
+            Log.d("FAN_BANNER_DEBUG", "Banner Ad not loaded due to network, ad limit, or adView not initialized.")
         }
     }
 
-    private fun setupBannerAdListeners() {
-        adBanner.adListener = object : AdListener() {
-            override fun onAdLoaded() {
-                BannerLoaded = true
-            }
+    // Removed setupFacebookInterstitialAd() function and all related logic
+    // private fun setupFacebookInterstitialAd() { /* ... */ }
 
-
-
-            override fun onAdOpened() {
-                // Code to be executed when an ad opens an overlay that
-                // covers the screen.
-            }
-
-
-
-            override fun onAdClosed() {
-                // Code to be executed when when the user is about to return
-                // to the app after tapping on an ad.
-            }
-
-            override fun onAdFailedToLoad(error: LoadAdError) {
-                super.onAdFailedToLoad(error)
-                AppUtils().showSnackbarMsg("Banner failed to load.${error.message}")
-            }
-        }
-    }
 
     /*--------------TO RESTORE THE SCREEN STATE ON RESUME---------------*/
     override fun onResume() {
         super.onResume()
-        if (AdObject.isTimerInProgress)
-            restartTimer()
         resumePausedFragment()
-
     }
 
     private fun resumePausedFragment() {
@@ -313,17 +333,13 @@ private fun navigateToScreenUsingNagGraph(destinationFrag: Fragment) {
         }
     }
 
-    private fun restartTimer() {
-        AdObject.admob?.startTimer(AdObject.INTERSTITIAL_LENGTH_MILLISECONDS)
-    }
-
     override fun onPause() {
-        cancelTimer()
         super.onPause()
     }
 
-    private fun cancelTimer() {
-        mCountDownTimer?.cancel()
+    override fun onDestroy() {
+        // Important: You must call destroy on AdView
+        adView?.destroy()
+        super.onDestroy()
     }
 }
-

@@ -5,31 +5,37 @@ import android.content.Context
 import android.os.CountDownTimer
 import android.util.Log
 import androidx.fragment.app.FragmentActivity
-import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.FullScreenContentCallback
-import com.google.android.gms.ads.LoadAdError
-import com.google.android.gms.ads.interstitial.InterstitialAd
-import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
-import com.facebook.galleryapp.AdObject.isTimerInProgress
-import com.facebook.galleryapp.AdObject.mCountDownTimer
+import com.facebook.ads.* // Import all Facebook Ads classes
+import com.facebook.galleryapp.AdObject.isTimerInProgress // Re-import isTimerInProgress
+import com.facebook.galleryapp.AdObject.mCountDownTimer // Re-import mCountDownTimer
 import com.facebook.galleryapp.NetworkWorker.adLimitEnabled
 import com.facebook.galleryapp.NetworkWorker.isOnline
 import java.sql.Timestamp
 import java.util.*
 
+// Changed to Facebook's InterstitialAd
 private var mInterstitialAd: InterstitialAd? = null
 private var mAdIsLoading: Boolean = false
 
 
-var TAG = "Admob"
+var TAG = "FacebookAdUtility" // Changed TAG to reflect Facebook Ads
 
 class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInterfaces, var SPLASH_SCREEN: Boolean = false) {
     var proceedToNextScreen: () -> Unit? = {
 //        AppUtils().showSnackbarMsg("Ad failed to Load.Callback Not set.No connection.")
     }
 
+    // Declare interstitialAdListener as a class member
+    private lateinit var interstitialAdListener: InterstitialAdListener
+
+
     init {
+        // Initialize the Facebook Audience Network SDK here if not already done in Application class
+        // AudienceNetworkAds.initialize(ctx) // Consider moving this to MyApp.kt for app-wide initialization
+
+        // Setup the InterstitialAdListener once
+        setupInterstitialAdListener()
+
         showAlertIfInterstitialIDNotSet()
         loadAdWithConnectivityCheck()
     }
@@ -45,16 +51,16 @@ class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInt
     /*------------LOAD THE NEXT SCREEN AFTER SHOWING THE INTERSTITIAL AD---------------------*/
     fun loadNextScreen(cb: () -> Unit) {
         proceedToNextScreen = cb
-        if (isNetworkNotAvailOrTimerNotExpired()) {
+        if (isNetworkNotAvailOrTimerNotExpired()) { // Timer logic re-integrated here
             proceedToNextScreen()
             return
         }
-        if (isAdLoaded()) {
-            if (!showAdWithConnectivityCheck()) {
+        if (isAdLoaded()) { // This now checks Facebook's ad state
+            if (!showAdWithConnectivityCheck()) { // This now shows Facebook ad
                 proceedToNextScreen()
             }
         } else {
-            loadAdWithConnectivityCheck()
+            loadAdWithConnectivityCheck() // This now loads Facebook ad
 //            AppUtils().logErrorMsg("The interstitial wasn't loaded yet. Loading it now and will show it next time.")
             Log.d("ERROR", "The interstitial wasn't loaded yet. Loading it now and will show it next time.")
             proceedToNextScreen() //show the ad next time.
@@ -63,46 +69,82 @@ class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInt
 
     /*---------------------------------------------------------------------------------------------------------*/
     fun loadAdWithConnectivityCheck() {
+        // isAdNotLoadedAndNetworkAvail() now checks for Facebook's mInterstitialAd
         if (isAdNotLoadedAndNetworkAvail()) {
             setAdIsLoading()
-            loadInterstitialAd()
+            loadInterstitialAd() // This now loads Facebook's InterstitialAd
         } else if (SPLASH_SCREEN == true) {
             appInterfaces.loadStartScreen()
         }
     }
 
     private fun loadInterstitialAd() {
-        val adRequest = AdRequest.Builder().build()
-
-        InterstitialAd.load(ctx as Context, AdObject.INTERSTITIAL_ID, adRequest,
-                object : InterstitialAdLoadCallback() {
-                    override fun onAdFailedToLoad(adError: LoadAdError) {
-//                        AppUtils().logErrorMsg("--------Ad Failed to Load------------")
-//                        AppUtils().logErrorMsg(adError.message)
-                        Log.d(TAG, "Ad Failed to Load")
-                        Log.d(TAG, adError.message)
-                        clearOldInterstitialAd()
-                        setAdIsNotLoading()
-                        checkIfAdLimitEnabled(adError)
-                        showAdFailedToLoadErrorMsg(adError)
-                        onAdFailedLogic()
-                    }
-
-                    override fun onAdLoaded(interstitialAd: InterstitialAd) {
-//                        AppUtils().logDebugMsg("Ad loaded successfully.")
-                        Log.d(TAG,"Ad loaded successfully.")
-                        mInterstitialAd = interstitialAd
-                        setAdIsNotLoading()
-//                        AppUtils().showSnackbarMsg("onAdLoaded")
-                        showAdIfInSplashScreen()
-                    }
-                })
-    }
-    private fun checkIfAdLimitEnabled(adError: LoadAdError) {
-        if (adError.code==3) {
-            adLimitEnabled = true
-//            AppUtils().showSnackbarMsg("AdLimit Enabled for this app.")
+        // Instantiate Facebook InterstitialAd if not already
+        if (mInterstitialAd == null) {
+            mInterstitialAd = InterstitialAd(ctx, AdObject.INTERSTITIAL_ID)
         }
+
+        // Load Facebook InterstitialAd using buildLoadAdConfig
+        mInterstitialAd?.loadAd(
+            mInterstitialAd!!.buildLoadAdConfig()
+                .withAdListener(interstitialAdListener)
+                .build()
+        )
+    }
+
+    // Setup the InterstitialAdListener for Facebook Ads
+    private fun setupInterstitialAdListener() {
+        interstitialAdListener = object : InterstitialAdListener {
+            override fun onError(ad: Ad, adError: AdError) {
+                Log.e(TAG, "Ad Failed to Load: " + adError.errorMessage)
+                clearOldInterstitialAd()
+                setAdIsNotLoading()
+                // checkIfAdLimitEnabled(adError) // AdMob specific error code check commented out
+                AppUtils().showSnackbarMsg("Interstitial failed to load.${adError.errorMessage}") // Using your existing snackbar
+                onAdFailedLogic()
+            }
+
+            override fun onAdLoaded(ad: Ad) {
+                Log.d(TAG, "Ad loaded successfully.")
+                mInterstitialAd = ad as InterstitialAd // Cast to Facebook's InterstitialAd
+                setAdIsNotLoading()
+                showAdIfInSplashScreen()
+            }
+
+            override fun onAdClicked(ad: Ad) {
+                Log.d(TAG, "Ad clicked.")
+            }
+
+            override fun onLoggingImpression(ad: Ad) {
+                Log.d(TAG, "Ad impression logged.")
+            }
+
+            override fun onInterstitialDisplayed(ad: Ad) {
+                Log.d(TAG, "Ad showed fullscreen content.")
+                // mInterstitialAd = null // Facebook recommends nulling after dismissal, not display
+                getAdOpenTimestamp() // Timer logic re-integrated here
+            }
+
+            override fun onInterstitialDismissed(ad: Ad) {
+                Log.d(TAG, "Ad was dismissed.")
+                clearOldInterstitialAd()
+                loadAdWithConnectivityCheck() // Load a new ad for next time
+                proceedToNextScreen()
+            }
+        }
+    }
+
+    // AdMob specific error code check commented out
+    private fun checkIfAdLimitEnabled(adError: AdError) {
+        // if (adError.code==3) { // This error code is AdMob specific
+        //     adLimitEnabled = true
+        //     AppUtils().showSnackbarMsg("AdLimit Enabled for this app.")
+        // }
+        // For Facebook, you might need to check specific Facebook AdError types or messages
+        // if (adError.errorMessage.contains("NO_FILL", ignoreCase = true)) {
+        //     adLimitEnabled = true
+        //     AppUtils().showSnackbarMsg("AdLimit Enabled for this app (Facebook no fill).")
+        // }
     }
 
 
@@ -110,10 +152,10 @@ class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInt
         loadStartScreen()
     }
 
-    private fun showAdFailedToLoadErrorMsg(adError: LoadAdError) {
-        val error = "domain: ${adError.domain}, code: ${adError.
-        code}, " +
-                "message: ${adError.message}"
+    private fun showAdFailedToLoadErrorMsg(adError: AdError) { // Changed LoadAdError to AdError
+        val error = "domain: ${adError}, code: ${adError.
+        errorCode}, " + // Changed code to errorCode for Facebook AdError
+                "message: ${adError.errorMessage}" // Changed message to errorMessage for Facebook AdError
         /*Toast.makeText(
                 ctx,
                 "onAdFailedToLoad() with error $error",
@@ -125,13 +167,14 @@ class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInt
 
 
     private fun isAdNotLoadedAndNetworkAvail(): Boolean {
-        return (isOnline == true) and (mInterstitialAd == null) and (!adLimitEnabled)
+        // Check if ad is not loaded AND not currently loading, and network is available
+        isOnline = true // test
+        return (isOnline == true) && (mInterstitialAd == null || !mInterstitialAd!!.isAdLoaded) && (!mAdIsLoading) && (!adLimitEnabled)
     }
 
     private fun showAdWithConnectivityCheck(): Boolean {
-        if (isAdLoaded()) {
-            setupAdCallbacks()
-            showInterstitialAd()
+        if (isAdLoaded()) { // This now checks Facebook's ad state
+            showInterstitialAd() // This now shows Facebook ad
             return true
         } else if (SPLASH_SCREEN == true) {
             appInterfaces.loadStartScreen()
@@ -140,38 +183,15 @@ class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInt
     }
 
     private fun setupAdCallbacks() {
-        /***********NEW*******/
-        mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() {
-//                AppUtils().logDebugMsg("Ad was dismissed.")
-                Log.d(TAG, "Ad was dismissed.")
-                clearOldInterstitialAd()
-                loadAdWithConnectivityCheck()
-                proceedToNextScreen()
-            }
-
-            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-//                AppUtils().logDebugMsg("Ad failed to show.")
-                Log.d(TAG, "Ad failed to show.")
-                clearOldInterstitialAd()
-                reloadAdToShowLater()
-            }
-
-            override fun onAdShowedFullScreenContent() {
-//                AppUtils().logDebugMsg("Ad showed fullscreen content.")
-                Log.d(TAG, "Ad showed fullscreen content.")
-                mInterstitialAd = null
-                getAdOpenTimestamp()
-            }
-        }
-        /***********NEW*******/
-
+        // This method is largely replaced by the setupInterstitialAdListener() and
+        // the withAdListener() call in loadAdWithConnectivityCheck()
+        // Keeping it empty as its original purpose is now handled by the InterstitialAdListener.
     }
 
 
     private fun showInterstitialAd() {
-        if (mInterstitialAd != null) {
-            mInterstitialAd?.show(ctx as Activity)
+        if (mInterstitialAd != null && mInterstitialAd!!.isAdLoaded) { // Check if loaded before showing
+            mInterstitialAd?.show()
         } else {
             AppUtils().logDebugMsg("The interstitial ad wasn't ready yet.")
 //            Log.d(TAG, "The interstitial ad wasn't ready yet.")
@@ -197,11 +217,13 @@ class AdmobUtility(private val ctx: FragmentActivity?, val appInterfaces: AppInt
     }
 
     private fun getAdOpenTimestamp() {
+        // Timer logic re-integrated here
         startTimer(AdObject.INTERSTITIAL_LENGTH_MILLISECONDS)
-        loadAdWithConnectivityCheck()
-        proceedToNextScreen()
+        loadAdWithConnectivityCheck() // This will load a new ad for next time
+        proceedToNextScreen() // This will proceed to the next screen after ad is shown
     }
 
+    // Timer methods are now re-integrated
     fun startTimer(milliseconds: Long) {
         isTimerInProgress = true
         createTimer(milliseconds)
@@ -221,9 +243,8 @@ private fun AdmobUtility.loadStartScreen() {
 }
 
 private fun isAdLoaded(): Boolean {
-    if (mInterstitialAd != null) {
-        return true
-    } else return false
+    // For Facebook, check if the ad object exists and is marked as loaded
+    return mInterstitialAd != null && mInterstitialAd!!.isAdLoaded
 }
 
 private fun setAdIsLoading() {
@@ -231,6 +252,7 @@ private fun setAdIsLoading() {
 }
 
 private fun clearOldInterstitialAd() {
+    mInterstitialAd?.destroy() // Destroy the old ad to release resources
     mInterstitialAd = null
 }
 
@@ -239,11 +261,11 @@ private fun setAdIsNotLoading() {
 }
 
 private fun isNetworkNotAvailOrTimerNotExpired(): Boolean {
-    if ((isOnline == false) or !showAdOrNot()) {
-        return true
-    } else return false
+    // Timer logic re-integrated here
+    return (isOnline == false) || !showAdOrNot()
 }
 
+// Timer related functions are now re-integrated
 private fun showAdOrNot(): Boolean {
     var result = false
     if (didTimerNotStart()) {
@@ -275,4 +297,3 @@ private fun createTimer(milliseconds: Long) {
         }
     }
 }
-
