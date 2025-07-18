@@ -14,6 +14,8 @@ class SplashFragment : androidx.fragment.app.Fragment() {
 
     override fun onStart() {
         super.onStart()
+        // In your MainActivity's onCreate() method, after setContentView() and before any ad loading
+        AdObject.INTERSTITIAL_ID = getString(R.string.INTERSTITIAL_ID)
         AdObject.admob = AdmobUtility(activity, appInterfaces ,SPLASH_SCREEN = true)
         AdObject.SPLASH_CALLED = true
 

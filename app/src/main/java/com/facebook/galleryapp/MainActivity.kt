@@ -75,8 +75,7 @@ class MainActivity : AppCompatActivity(), AppInterfaces {
         // Find the banner container from XML (assuming it has id @+id/banner_container)
         bannerContainer = findViewById(R.id.adBanner)
 
-      // In your MainActivity's onCreate() method, after setContentView() and before any ad loading
-        AdObject.INTERSTITIAL_ID = getString(R.string.INTERSTITIAL_ID)
+
         startANRWatchDog()
         // initializeAdmob() removed - AdMob initialization is no longer needed
         initializeNavgraph() // Retained as it's part of your app's navigation

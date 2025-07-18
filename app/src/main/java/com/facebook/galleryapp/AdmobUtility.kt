@@ -262,6 +262,7 @@ private fun setAdIsNotLoading() {
 
 private fun isNetworkNotAvailOrTimerNotExpired(): Boolean {
     // Timer logic re-integrated here
+    return false //test
     return (isOnline == false) || !showAdOrNot()
 }
 
