@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.CountDownTimer
 import android.util.Log
 import android.view.View
+import com.test.imagetemplate03.AdmobUtility
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
@@ -36,22 +37,6 @@ object AdObject {
 
 
 
-    //Find the Mode of the App based on the date
-    fun showAppOrNot(): Boolean {
-
-        var result = false
-
-        val targetDate =
-                Timestamp(SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH).parse((TARGET_DATE_STRING)).time)
-
-        val diffHours = TimeUnit.MILLISECONDS.toHours(targetDate.time - Timestamp(Date().time).time)
-        Log.e("Date diff:", "$targetDate:$diffHours")
-
-        if (diffHours <= THRESHOLD_TARGET_HOURS) {
-            result = true
-        }
-        return result
-    }
 
     fun isNetworkAvailable(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
