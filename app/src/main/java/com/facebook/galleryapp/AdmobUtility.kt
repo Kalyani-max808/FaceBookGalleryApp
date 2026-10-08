@@ -13,10 +13,7 @@ import com.facebook.galleryapp.NetworkWorker.isOnline
 import java.sql.Timestamp
 import java.util.Date
 
-private var mInterstitialAd: InterstitialAd? = null
-private var mAdIsLoading: Boolean = false
-
-var TAG = "Admob"
+private const val TAG = "FAN"
 
 class AdmobUtility(
     private val ctx: FragmentActivity?,
@@ -25,126 +22,180 @@ class AdmobUtility(
 ) {
 
     /*
-     * IMPORTANT:
+     * ------------------------------------------------------------
+     * AD STATE
+     * ------------------------------------------------------------
      *
-     * Always have a valid fallback callback.
+     * mInterstitialAd is assigned ONLY after onAdLoaded().
      *
-     * This prevents the splash screen from getting stuck if
-     * the ad fails before loadNextScreen() supplies a callback.
+     * This is important because simply creating an
+     * InterstitialAd object does NOT mean the ad is loaded.
      */
+
+    private var mInterstitialAd: InterstitialAd? = null
+
+    private var mAdIsLoading = false
+
+    private var mAdIsLoaded = false
+
+    /*
+     * ------------------------------------------------------------
+     * FALLBACK NAVIGATION
+     * ------------------------------------------------------------
+     */
+
     var proceedToNextScreen: () -> Unit = {
+
         if (SPLASH_SCREEN) {
+
             SPLASH_SCREEN = false
+
             appInterfaces.loadStartScreen()
         }
     }
 
     /*
-     * Facebook Audience Network Interstitial listener
+     * ------------------------------------------------------------
+     * FACEBOOK AUDIENCE NETWORK INTERSTITIAL LISTENER
+     * ------------------------------------------------------------
      */
-    private val interstitialAdListener = object : InterstitialAdListener {
 
-        override fun onInterstitialDisplayed(ad: Ad) {
+    private val interstitialAdListener =
+        object : InterstitialAdListener {
 
-            Log.d(TAG, "Facebook interstitial displayed.")
+            override fun onInterstitialDisplayed(ad: Ad) {
 
-            /*
-             * The interstitial has been consumed.
-             * It must not be reused.
-             */
-            mInterstitialAd = null
+                Log.d(
+                    TAG,
+                    "Facebook interstitial displayed."
+                )
 
-            /*
-             * Start the ad-frequency timer.
-             */
-            getAdOpenTimestamp()
-        }
+                /*
+                 * The displayed interstitial has now been consumed.
+                 * Do not try to reuse it.
+                 */
+                mInterstitialAd = null
+                mAdIsLoaded = false
 
-        override fun onInterstitialDismissed(ad: Ad) {
+                /*
+                 * Start the ad frequency timer.
+                 */
+                getAdOpenTimestamp()
+            }
 
-            Log.d(TAG, "Facebook interstitial dismissed.")
+            override fun onInterstitialDismissed(ad: Ad) {
 
-            clearOldInterstitialAd()
+                Log.d(
+                    TAG,
+                    "Facebook interstitial dismissed."
+                )
 
-            /*
-             * Continue to the requested screen immediately.
-             */
-            proceedToNextScreen()
+                /*
+                 * Make absolutely sure the old ad is removed.
+                 */
+                clearOldInterstitialAd()
 
-            /*
-             * Preload another ad for the next opportunity.
-             */
-            loadAdWithConnectivityCheck()
-        }
+                setAdIsNotLoading()
 
-        override fun onError(
-            ad: Ad,
-            adError: AdError
-        ) {
-
-            Log.e(
-                TAG,
-                "Facebook interstitial error: ${adError.errorMessage}"
-            )
-
-            clearOldInterstitialAd()
-
-            setAdIsNotLoading()
-
-            /*
-             * VERY IMPORTANT:
-             *
-             * Never leave the splash screen waiting for an ad
-             * that failed.
-             */
-            if (SPLASH_SCREEN) {
-                SPLASH_SCREEN = false
-                appInterfaces.loadStartScreen()
-            } else {
+                /*
+                 * Continue navigation.
+                 *
+                 * Navigation happens HERE, not in
+                 * onInterstitialDisplayed(), so it will not
+                 * happen twice.
+                 */
                 proceedToNextScreen()
+
+                /*
+                 * Preload another ad for the next opportunity.
+                 */
+                loadAdWithConnectivityCheck()
+            }
+
+            override fun onError(
+                ad: Ad,
+                adError: AdError
+            ) {
+
+                Log.e(
+                    TAG,
+                    "Facebook interstitial error: ${adError.errorMessage}"
+                )
+
+                AppUtils().logDebugMsg(
+                    "Facebook interstitial error: ${adError.errorMessage}"
+                )
+
+                /*
+                 * Remove failed ad state.
+                 */
+                clearOldInterstitialAd()
+
+                setAdIsNotLoading()
+
+                /*
+                 * NEVER leave splash waiting after an error.
+                 */
+                if (SPLASH_SCREEN) {
+
+                    SPLASH_SCREEN = false
+
+                    appInterfaces.loadStartScreen()
+
+                } else {
+
+                    proceedToNextScreen()
+                }
+            }
+
+            override fun onAdLoaded(ad: Ad) {
+
+                Log.d(
+                    TAG,
+                    "Facebook interstitial loaded successfully."
+                )
+
+                AppUtils().logDebugMsg(
+                    "Facebook interstitial loaded successfully."
+                )
+
+                /*
+                 * IMPORTANT:
+                 *
+                 * The ad is assigned ONLY here.
+                 *
+                 * Creating InterstitialAd does not mean that
+                 * the ad has actually loaded.
+                 */
+                mInterstitialAd = ad as InterstitialAd
+
+                mAdIsLoaded = true
+
+                setAdIsNotLoading()
+
+                /*
+                 * If splash is waiting for the ad,
+                 * show it now.
+                 */
+                showAdIfInSplashScreen()
+            }
+
+            override fun onAdClicked(ad: Ad) {
+
+                Log.d(
+                    TAG,
+                    "Facebook interstitial clicked."
+                )
+            }
+
+            override fun onLoggingImpression(ad: Ad) {
+
+                Log.d(
+                    TAG,
+                    "Facebook interstitial impression."
+                )
             }
         }
-
-        override fun onAdLoaded(ad: Ad) {
-
-            Log.d(
-                TAG,
-                "Facebook interstitial loaded successfully."
-            )
-
-            AppUtils().logDebugMsg(
-                "Facebook interstitial loaded successfully."
-            )
-
-            /*
-             * Store the loaded Facebook interstitial.
-             */
-            mInterstitialAd = ad as InterstitialAd
-
-            setAdIsNotLoading()
-
-            /*
-             * If this is the splash screen, show it now.
-             */
-            showAdIfInSplashScreen()
-        }
-
-        override fun onAdClicked(ad: Ad) {
-
-            Log.d(
-                TAG,
-                "Facebook interstitial clicked."
-            )
-        }
-
-        override fun onLoggingImpression(ad: Ad) {
-
-            Log.d(
-                TAG,
-                "Facebook interstitial impression."
-            )
-        }
-    }
 
     /*
      * ------------------------------------------------------------
@@ -157,16 +208,19 @@ class AdmobUtility(
         showAlertIfInterstitialIDNotSet()
 
         /*
-         * Set the fallback callback immediately.
+         * Set a safe fallback callback immediately.
          *
-         * This is important because the splash screen can start
-         * before loadNextScreen() has supplied its callback.
+         * This prevents splash from getting stuck if something
+         * fails before loadNextScreen() supplies the real callback.
          */
         if (SPLASH_SCREEN) {
 
             proceedToNextScreen = {
+
                 if (SPLASH_SCREEN) {
+
                     SPLASH_SCREEN = false
+
                     appInterfaces.loadStartScreen()
                 }
             }
@@ -174,6 +228,12 @@ class AdmobUtility(
 
         loadAdWithConnectivityCheck()
     }
+
+    /*
+     * ------------------------------------------------------------
+     * CHECK INTERSTITIAL ID
+     * ------------------------------------------------------------
+     */
 
     private fun showAlertIfInterstitialIDNotSet() {
 
@@ -188,7 +248,9 @@ class AdmobUtility(
              * Do not block splash if there is no placement ID.
              */
             if (SPLASH_SCREEN) {
+
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
             }
         }
@@ -208,7 +270,7 @@ class AdmobUtility(
         proceedToNextScreen = cb
 
         /*
-         * If there is no network or the ad timer hasn't expired,
+         * If there is no network or the ad timer has not expired,
          * continue without showing an ad.
          */
         if (isNetworkNotAvailOrTimerNotExpired()) {
@@ -219,11 +281,12 @@ class AdmobUtility(
         }
 
         /*
-         * Ad already available.
+         * Ad is already completely loaded.
          */
         if (isAdLoaded()) {
 
             if (!showAdWithConnectivityCheck()) {
+
                 proceedToNextScreen()
             }
 
@@ -233,8 +296,8 @@ class AdmobUtility(
         /*
          * Ad is not ready.
          *
-         * Start loading it for the next opportunity, but DO NOT
-         * keep the user waiting for it.
+         * Load it for the next opportunity, but do not make
+         * the user wait for it.
          */
         loadAdWithConnectivityCheck()
 
@@ -265,7 +328,9 @@ class AdmobUtility(
             )
 
             if (SPLASH_SCREEN) {
+
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
             }
 
@@ -273,7 +338,7 @@ class AdmobUtility(
         }
 
         /*
-         * Don't start another load while one is already running.
+         * Do not start another load while one is already running.
          */
         if (mAdIsLoading) {
 
@@ -286,9 +351,9 @@ class AdmobUtility(
         }
 
         /*
-         * Already have a loaded ad.
+         * Already have a completely loaded ad.
          */
-        if (mInterstitialAd != null) {
+        if (isAdLoaded()) {
 
             Log.d(
                 TAG,
@@ -299,6 +364,7 @@ class AdmobUtility(
              * If splash is waiting, show it.
              */
             if (SPLASH_SCREEN) {
+
                 showAdIfInSplashScreen()
             }
 
@@ -318,12 +384,16 @@ class AdmobUtility(
             if (SPLASH_SCREEN) {
 
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
             }
 
             return
         }
 
+        /*
+         * Mark loading BEFORE starting the SDK request.
+         */
         setAdIsLoading()
 
         loadInterstitialAd()
@@ -351,6 +421,7 @@ class AdmobUtility(
             if (SPLASH_SCREEN) {
 
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
             }
 
@@ -371,6 +442,7 @@ class AdmobUtility(
             if (SPLASH_SCREEN) {
 
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
             }
 
@@ -380,10 +452,13 @@ class AdmobUtility(
         try {
 
             /*
-             * THIS WAS MISSING IN YOUR ORIGINAL CODE.
+             * Create the Facebook interstitial.
              *
-             * We must create the Facebook InterstitialAd object
-             * before calling loadAd().
+             * IMPORTANT:
+             *
+             * Do NOT assign this object to mInterstitialAd yet.
+             *
+             * It is only a loading object at this point.
              */
             val interstitialAd =
                 InterstitialAd(
@@ -392,12 +467,7 @@ class AdmobUtility(
                 )
 
             /*
-             * Store the object so it can be shown later.
-             */
-            mInterstitialAd = interstitialAd
-
-            /*
-             * Load the Facebook interstitial.
+             * Start loading.
              */
             interstitialAd.loadAd(
                 interstitialAd
@@ -424,11 +494,12 @@ class AdmobUtility(
             setAdIsNotLoading()
 
             /*
-             * NEVER leave splash waiting after an exception.
+             * Never leave splash waiting after an exception.
              */
             if (SPLASH_SCREEN) {
 
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
             }
         }
@@ -436,13 +507,14 @@ class AdmobUtility(
 
     /*
      * ------------------------------------------------------------
-     * SHOW INTERSTITIAL
+     * SHOW INTERSTITIAL FROM SPLASH
      * ------------------------------------------------------------
      */
 
     private fun showAdIfInSplashScreen() {
 
         if (!SPLASH_SCREEN) {
+
             return
         }
 
@@ -454,6 +526,7 @@ class AdmobUtility(
             )
 
             SPLASH_SCREEN = false
+
             appInterfaces.loadStartScreen()
 
             return
@@ -467,6 +540,12 @@ class AdmobUtility(
         showInterstitialAd()
     }
 
+    /*
+     * ------------------------------------------------------------
+     * SHOW INTERSTITIAL
+     * ------------------------------------------------------------
+     */
+
     private fun showAdWithConnectivityCheck(): Boolean {
 
         if (isAdLoaded()) {
@@ -479,6 +558,7 @@ class AdmobUtility(
         if (SPLASH_SCREEN) {
 
             SPLASH_SCREEN = false
+
             appInterfaces.loadStartScreen()
         }
 
@@ -489,7 +569,7 @@ class AdmobUtility(
 
         val ad = mInterstitialAd
 
-        if (ad == null) {
+        if (ad == null || !mAdIsLoaded) {
 
             Log.d(
                 TAG,
@@ -503,9 +583,11 @@ class AdmobUtility(
 
         try {
 
-            /*
-             * Facebook Audience Network show call.
-             */
+            Log.d(
+                TAG,
+                "Calling Facebook interstitial show()."
+            )
+
             ad.show()
 
         } catch (e: Exception) {
@@ -526,6 +608,7 @@ class AdmobUtility(
             if (SPLASH_SCREEN) {
 
                 SPLASH_SCREEN = false
+
                 appInterfaces.loadStartScreen()
 
             } else {
@@ -534,7 +617,7 @@ class AdmobUtility(
             }
 
             /*
-             * Try loading another ad for the future.
+             * Try to preload another ad.
              */
             loadAdWithConnectivityCheck()
         }
@@ -578,21 +661,21 @@ class AdmobUtility(
 
     private fun getAdOpenTimestamp() {
 
+        /*
+         * Start frequency timer after the ad is displayed.
+         */
         AdObject
             .INTERSTITIAL_LENGTH_MILLISECONDS
             .startTimer()
 
         /*
-         * Do not block the current screen.
+         * IMPORTANT:
          *
-         * Preload the next ad.
+         * Do NOT call proceedToNextScreen() here.
+         *
+         * Navigation is handled after the interstitial is
+         * dismissed.
          */
-        loadAdWithConnectivityCheck()
-
-        /*
-         * Continue the navigation after the ad was displayed.
-         */
-        proceedToNextScreen()
     }
 
     private fun Long.startTimer() {
@@ -612,7 +695,13 @@ class AdmobUtility(
 
     private fun isAdLoaded(): Boolean {
 
-        return mInterstitialAd != null
+        /*
+         * An InterstitialAd object existing does NOT necessarily
+         * mean the ad is loaded.
+         *
+         * Both conditions must be true.
+         */
+        return mInterstitialAd != null && mAdIsLoaded
     }
 
     private fun setAdIsLoading() {
@@ -628,6 +717,8 @@ class AdmobUtility(
     private fun clearOldInterstitialAd() {
 
         mInterstitialAd = null
+
+        mAdIsLoaded = false
     }
 
     /*
@@ -639,10 +730,12 @@ class AdmobUtility(
     private fun isNetworkNotAvailOrTimerNotExpired(): Boolean {
 
         if (isOnline == false) {
+
             return true
         }
 
         if (!showAdOrNot()) {
+
             return true
         }
 
@@ -652,10 +745,12 @@ class AdmobUtility(
     private fun showAdOrNot(): Boolean {
 
         if (didTimerNotStart()) {
+
             return true
         }
 
         if (isTimerExpired()) {
+
             return true
         }
 
