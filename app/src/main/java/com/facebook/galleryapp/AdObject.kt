@@ -6,11 +6,7 @@ import android.os.Build
 import android.os.CountDownTimer
 import android.util.Log
 import android.view.View
-import com.test.imagetemplate03.AdmobUtility
 import java.sql.Timestamp
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.TimeUnit
 
 
 object AdObject {

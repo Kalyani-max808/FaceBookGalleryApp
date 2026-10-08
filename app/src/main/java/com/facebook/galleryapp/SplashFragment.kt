@@ -1,35 +1,73 @@
 package com.facebook.galleryapp
 
-
-import android.app.Activity
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.test.imagetemplate03.AdmobUtility
-
+import androidx.fragment.app.Fragment
 
 private lateinit var appInterfaces: AppInterfaces
 
-class SplashFragment : androidx.fragment.app.Fragment() {
+class SplashFragment : Fragment() {
+
+    private var splashAdInitialized = false
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+
+        if (context is AppInterfaces) {
+            appInterfaces = context
+        } else {
+            throw IllegalStateException(
+                "Host Activity must implement AppInterfaces"
+            )
+        }
+    }
 
     override fun onStart() {
         super.onStart()
-        // In your MainActivity's onCreate() method, after setContentView() and before any ad loading
-        AdObject.INTERSTITIAL_ID = getString(R.string.INTERSTITIAL_ID)
-        AdObject.admob = AdmobUtility(activity, appInterfaces ,SPLASH_SCREEN = true)
+
+        /*
+         * Prevent creating the FAN ad manager multiple times
+         * if onStart() is called again.
+         */
+        if (splashAdInitialized) {
+            return
+        }
+
+        splashAdInitialized = true
+
+        /*
+         * Set Facebook Audience Network interstitial
+         * placement ID.
+         */
+        AdObject.INTERSTITIAL_ID =
+            getString(R.string.INTERSTITIAL_ID)
+
+        /*
+         * Create the FAN ad manager for the splash screen.
+         */
+        AdObject.admob =
+            AdmobUtility(
+                requireActivity(),
+                appInterfaces,
+                SPLASH_SCREEN = true
+            )
+
         AdObject.SPLASH_CALLED = true
-
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
-                              savedInstanceState: Bundle?): View? {
-        // Inflate the rate_me_layout for this fragment
-        return inflater.inflate(R.layout.splash_fragment, container, false)
-    }
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
 
-    override fun onAttach(activity: Activity) {
-        super.onAttach(activity)
-        if (activity is AppInterfaces){ appInterfaces = activity }
+        return inflater.inflate(
+            R.layout.splash_fragment,
+            container,
+            false
+        )
     }
 }
